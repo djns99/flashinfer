@@ -6318,8 +6318,14 @@ class MegaMoeFc12Runner(MoERunner):
 
     def __init__(self, config: MoEConfig, device: torch.device):
         super().__init__()
+        from ..utils import device_support_pdl
+
         self.config = config
         self.device = torch.device(device)
+        enable_pdl = config.execution.enable_pdl
+        if enable_pdl is None:
+            enable_pdl = device_support_pdl(self.device)
+        self._enable_pdl = enable_pdl
         self._sort_buffers: Optional[dict[str, torch.Tensor]] = None
         self._permuted_input: Optional[torch.Tensor] = None
         self._permuted_output: Optional[torch.Tensor] = None
@@ -6501,6 +6507,7 @@ class MegaMoeFc12Runner(MoERunner):
             local_expert_offset=self.config.experts.local_expert_offset,
             num_local_experts=self.config.experts.local_num_experts,
             tile_tokens_dim=64,
+            enable_pdl=self._enable_pdl,
             **self._sort_buffers,
         )
         assert result.expert_counts is not None
@@ -6514,6 +6521,7 @@ class MegaMoeFc12Runner(MoERunner):
             self._permuted_input.shape[0],
             routing.top_k,
             64,
+            enable_pdl=self._enable_pdl,
         )
         self._launcher.run(
             Bf16Fc12Inputs(
@@ -6533,6 +6541,7 @@ class MegaMoeFc12Runner(MoERunner):
             topk_weights,
             hidden_states.shape[0],
             routing.top_k,
+            enable_pdl=self._enable_pdl,
         )
         return output
 
